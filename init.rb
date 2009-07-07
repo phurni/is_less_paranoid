@@ -1,1 +1,1 @@
-require 'is_paranoid'
+require 'is_less_paranoid'
