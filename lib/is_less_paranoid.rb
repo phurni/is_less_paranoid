@@ -1,6 +1,6 @@
 require 'activerecord'
 
-module IsParanoid
+module IsLessParanoid
   # Call this in your model to enable all the safety-net goodness
   #
   # Example:
@@ -15,18 +15,62 @@ module IsParanoid
     class_inheritable_accessor :destroyed_field, :field_destroyed, :field_not_destroyed
     self.destroyed_field, self.field_destroyed, self.field_not_destroyed = opts[:field]
 
+    extend ClassMethods
+    include InstanceMethods
+    
+    alive_class = create_alive_class(opts[:suffix] || 'Alive')
+    
     # This is the real magic. All calls made to this model will append
     # the conditions deleted_at => nil (or whatever your destroyed_field
     # and field_not_destroyed are). All exceptions require using
     # exclusive_scope (see self.delete_all, self.count_with_destroyed,
     # and self.find_with_destroyed defined in the module ClassMethods)
-    default_scope :conditions => {destroyed_field => field_not_destroyed}
-
-    extend ClassMethods
-    include InstanceMethods
+    alive_class.send(:default_scope, :conditions => {destroyed_field => field_not_destroyed})
   end
 
   module ClassMethods
+    def inherited(subclass) # :nodoc:
+      super
+      subclass.create_alive_class(@alive_class_suffix)
+    end
+  
+    def create_alive_class(suffix) # :nodoc:
+      @alive_class_suffix = suffix
+      table_name  # force naming the table (works even if set_table_name has been called)
+
+      # Create a cloned class with "Alive" suffixed in the same namespace
+      nesting = self.name.split("::")
+      alive_class_name = "#{nesting.pop}#{@alive_class_suffix}"
+      namespace = "::#{nesting.join("::")}".constantize
+      namespace.const_set(alive_class_name, self.clone)
+      alive_class = namespace.const_get(alive_class_name)
+      
+      alive_class.instance_variable_set(:@cloner_class_name, self.name)
+
+      def alive_class.inheritable_attributes
+        # Implement copy-on-access, so that inheritable attributes are only cloned when accessed
+        # The main reason for this is because #inherited is called at the start of the class definition and at this time
+        # no class methods (like named_scope) are called yet. If we had another callback like #inherited_after which was triggered
+        # at the end of the class definition, we could have done the clone operation there.
+        unless defined? @inheritable_attributes_copied
+          @inheritable_attributes_copied = true
+          # We don't want to share inheritable attributes, so clone this class instance variable
+          new_inheritable_attributes = @inheritable_attributes.inject({}) do |memo, (key, value)|
+            memo.update(key => value.duplicable? ? value.dup : value)
+          end
+          @inheritable_attributes = new_inheritable_attributes
+        end
+        @inheritable_attributes
+      end
+    
+      def alive_class.sti_name
+        store_full_sti_class ? @cloner_class_name : @cloner_class_name.demodulize
+      end
+      
+      alive_class
+    end
+    protected :inherited, :create_alive_class
+  
     # Actually delete the model, bypassing the safety net. Because
     # this method is called internally by Model.delete(id) and on the
     # delete method in each instance, we don't need to specify those
@@ -221,8 +265,14 @@ module IsParanoid
       self
     end
 
+    # Checks whenever this record is destroyed
+    # (so that returned records from find with destroyed may be checked against their state)
+    def destroyed?
+      send(self.class.destroyed_field) != self.class.field_not_destroyed
+    end
+
   end
 
 end
 
-ActiveRecord::Base.send(:extend, IsParanoid)
+ActiveRecord::Base.send(:extend, IsLessParanoid)
