@@ -1,1 +1,1 @@
-require 'is_less_paranoid'
+require File.join(File.dirname(__FILE__), 'rails/init')
