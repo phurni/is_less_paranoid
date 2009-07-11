@@ -9,7 +9,7 @@ class Android < ActiveRecord::Base #:nodoc:
   has_one :sticker
   has_many :memories, :foreign_key => 'parent_id'
 
-  is_paranoid
+  is_less_paranoid :clone => false
 
   # this code is to ensure that our destroy and restore methods
   # work without triggering before/after_update callbacks
@@ -20,7 +20,7 @@ class Android < ActiveRecord::Base #:nodoc:
 end
 
 class Component < ActiveRecord::Base #:nodoc:
-  is_paranoid
+  is_less_paranoid :clone => false
   belongs_to :android, :dependent => :destroy
   has_many :sub_components, :dependent => :destroy
   NEW_NAME = 'Something Else!'
@@ -32,12 +32,12 @@ class Component < ActiveRecord::Base #:nodoc:
 end
 
 class SubComponent < ActiveRecord::Base #:nodoc:
-  is_paranoid
+  is_less_paranoid :clone => false
   belongs_to :component, :dependent => :destroy
 end
 
 class Memory < ActiveRecord::Base #:nodoc:
-  is_paranoid
+  is_less_paranoid :clone => false
   belongs_to :android, :class_name => "Android", :foreign_key => "parent_id"
 end
 
@@ -50,30 +50,30 @@ class Sticker < ActiveRecord::Base #:nodoc
     self.name = MM_NAME
   end
 
-  is_paranoid
+  is_less_paranoid :clone => false
   belongs_to :android
 end
 
 class AndroidWithScopedUniqueness < ActiveRecord::Base #:nodoc:
   set_table_name :androids
   validates_uniqueness_of :name, :scope => :deleted_at
-  is_paranoid
+  is_less_paranoid :clone => false
 end
 
 class Ninja < ActiveRecord::Base #:nodoc:
   validates_uniqueness_of :name, :scope => :visible
-  is_paranoid :field => [:visible, false, true]
+  is_less_paranoid :field => [:visible, false, true], :clone => false
   
   alias_method :vanish, :destroy
 end
 
 class Pirate < ActiveRecord::Base #:nodoc:
-  is_paranoid :field => [:alive, false, true]
+  is_less_paranoid :field => [:alive, false, true], :clone => false
 end
 
 class DeadPirate < ActiveRecord::Base #:nodoc:
   set_table_name :pirates
-  is_paranoid :field => [:alive, true, false]
+  is_less_paranoid :field => [:alive, true, false], :clone => false
 end
 
 class RandomPirate < ActiveRecord::Base #:nodoc:
@@ -86,7 +86,7 @@ end
 
 class UndestroyablePirate < ActiveRecord::Base #:nodoc:
   set_table_name :pirates
-  is_paranoid :field => [:alive, false, true]
+  is_less_paranoid :field => [:alive, false, true], :clone => false
 
   def before_destroy
     false

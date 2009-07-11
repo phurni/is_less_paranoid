@@ -1,5 +1,5 @@
 require 'rubygems'
-require "#{File.dirname(__FILE__)}/../lib/is_paranoid"
+require "#{File.dirname(__FILE__)}/../lib/is_less_paranoid"
 require 'activerecord'
 require 'yaml'
 require 'spec'

@@ -3,7 +3,7 @@ require File.expand_path(File.dirname(__FILE__) + '/models')
 
 LUKE = 'Luke Skywalker'
 
-describe IsParanoid do
+describe IsLessParanoid do
   before(:each) do
     Android.delete_all
     Person.delete_all
