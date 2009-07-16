@@ -23,10 +23,24 @@ module IsLessParanoid
     clone_class_and_apply_constraints(opts.reverse_merge(default_options))
   end
 
+  module CloneClassMethods
+    def paranoid_original_class
+      @paranoid_original_class
+    end
+  
+    def sti_name
+      @paranoid_original_class.sti_name
+    end
+  
+    def descends_from_active_record?
+      @paranoid_original_class.descends_from_active_record?
+    end
+  end
+
   module ClassMethods
     def inherited(subclass) # :nodoc:
       super
-      subclass.clone_class_and_apply_constraints(@paranoid_options)
+      subclass.clone_class_and_apply_constraints(@paranoid_options) unless @cloning || (@paranoid_original_class !=self)
     end
   
     def clone_class_and_apply_constraints(options) # :nodoc:
@@ -44,33 +58,19 @@ module IsLessParanoid
 
         # Create a cloned class in the same namespace with the supplied prefix and suffix
         nesting = self.name.split("::")
-        clone_class_name = "#{options[:prefix]}#{nesting.pop}#{options[:suffix]}"
+        original_class_name = nesting.pop
+        clone_class_name = "#{options[:prefix]}#{original_class_name}#{options[:suffix]}"
         namespace = "::#{nesting.join("::")}".constantize
-        namespace.const_set(clone_class_name, self.clone)
+        @cloning = true # FIXME: Not thread safe, should use a Mutex
+        namespace.module_eval "class #{clone_class_name} < #{original_class_name}; end"
+        @cloning = false
         clone_class = namespace.const_get(clone_class_name)
         
-        clone_class.instance_variable_set(:@cloner_class_name, self.name)
-        clone_class.instance_variable_get(:@paranoid_options)[:scope_destroyed] = (options[:clone] == :alive)
+        @paranoid_original_class = self
+        clone_class.instance_variable_set(:@paranoid_original_class, self)
+        clone_class.instance_variable_set(:@paranoid_options, @paranoid_options.reverse_merge(:scope_destroyed => (options[:clone] == :alive)))
 
-        def clone_class.inheritable_attributes
-          # Implement copy-on-access, so that inheritable attributes are only cloned when accessed
-          # The main reason for this is because #inherited is called at the start of the class definition and at this time
-          # no class methods (like named_scope) are called yet. If we had another callback like #inherited_after which was triggered
-          # at the end of the class definition, we could have done the clone operation there.
-          unless defined? @inheritable_attributes_copied
-            @inheritable_attributes_copied = true
-            # We don't want to share inheritable attributes, so clone this class instance variable
-            new_inheritable_attributes = @inheritable_attributes.inject({}) do |memo, (key, value)|
-              memo.update(key => value.duplicable? ? value.dup : value)
-            end
-            @inheritable_attributes = new_inheritable_attributes
-          end
-          @inheritable_attributes
-        end
-      
-        def clone_class.sti_name
-          store_full_sti_class ? @cloner_class_name : @cloner_class_name.demodulize
-        end
+        clone_class.extend CloneClassMethods
       end
       
       klass = (options[:clone] == :alive) ? clone_class : self
@@ -83,6 +83,10 @@ module IsLessParanoid
       klass.send(:default_scope, :conditions => {destroyed_field => field_not_destroyed})
     end
     protected :inherited, :clone_class_and_apply_constraints
+    
+    def paranoid_original_class
+      self
+    end
   
     # Actually delete the model, bypassing the safety net. Because
     # this method is called internally by Model.delete(id) and on the
@@ -286,6 +290,13 @@ module IsLessParanoid
       send(self.class.destroyed_field) != self.class.field_not_destroyed
     end
 
+    # Records of the original class and the clone class must match
+    def ==(comparison_object)
+      super ||
+        ((self.class.paranoid_original_class == (comparison_object.class.paranoid_original_class rescue nil)) &&
+          comparison_object.id == id &&
+          !comparison_object.new_record?)
+    end
   end
 
 end
