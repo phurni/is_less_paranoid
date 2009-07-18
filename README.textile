@@ -1,8 +1,8 @@
 h1. is_less_paranoid
 
-This plugin is a fork of the original project [is_paranoid]http://github.com/semanticart/is_paranoid/tree .
+This plugin is a fork of the original project "is_paranoid":http://github.com/semanticart/is_paranoid/tree .
 
-Please [refer to it]http://github.com/phurni/is_less_paranoid/tree/master/IS_PARANOID_README.textile for the basic what it is.
+Please "refer to it":http://github.com/phurni/is_less_paranoid/tree/master/IS_PARANOID_README.textile for the basic what it is.
 
 
 h3. Less is More
