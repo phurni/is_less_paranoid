@@ -1,0 +1,220 @@
+h1. is_less_paranoid
+
+This plugin is a fork of the original project [is_paranoid]http://github.com/semanticart/is_paranoid/tree .
+
+Please [refer to it]http://github.com/phurni/is_less_paranoid/tree/master/IS_PARANOID_README.textile for the basic what it is.
+
+
+h3. Less is More
+
+Let's take an example to show the added behaviour of the *is_less_paranoid* plugin.
+
+Say you have _projects_, _tasks_ and _workers_. A task belongs to a project and is executed by a worker.
+As in the real life, projects may be canceled. So we delete a project (the Project model has been 'paranoid').
+Now when we want to list all tasks made by a worker, the ones that concerned the deleted project will contain
+a _nil_ association for the project.
+
+<pre>
+  class Project < ActiveRecord::Base
+    has_many :tasks
+  
+    is_paranoid
+  end
+
+  class Worker < ActiveRecord::Base
+    has_many :tasks
+  
+    is_paranoid
+  end
+
+  class Task < ActiveRecord::Base
+    belongs_to :project
+    belongs_to :worker
+    
+    is_paranoid
+  end
+</pre>
+
+<pre>
+  house = Project.create(:name => 'Build a house')
+  joe = Worker.create(:name => 'Joe')
+  Task.create(:name => 'paint walls', :worker => joe, :project => house)
+  
+  house.destroy
+  the_task = joe.tasks.first
+  the_task.name      # <== returns 'paint walls'
+  the_task.project   # <== returns nil
+</pre>
+
+In this scenario I would prefer to see the associated but deleted project. I could even show the destroyed state
+in the view with a specific style.
+
+This is exactly the aim of *is_less_paranoid*
+
+Note though that when I want to assign a project to a new task I want to list only the undestroyed projects.
+This is done with this:
+
+<pre>
+  projects = ProjectAlive.all
+</pre>
+
+Hey, I didn't setup a ProjectAlive model! Yes, *is_less_paranoid* did it.
+
+
+h3. How to use it
+
+When you add *is_less_paranoid* to your model it will modify it to handle soft deletion (exactly what is_paranoid does)
+but it won't scope your finds with the deleted flag. So any AR find will find normal records and deleted records.
+
+This is the reason why associated records are still found even when destroyed.
+
+Now when you want to scope your finds with the deleted flag, simply use another model named
+YourModel<strong>Alive</strong> which is automatically created by is_less_paranoid and has exactly the same
+behaviour of your original model (except the scoping).
+
+<pre>
+  class Project < ActiveRecord::Base
+    has_many :tasks
+  
+    is_less_paranoid
+  end
+
+  class Worker < ActiveRecord::Base
+    has_many :tasks
+  
+    is_less_paranoid
+  end
+
+  class Task < ActiveRecord::Base
+    belongs_to :project
+    belongs_to :worker
+    
+    is_less_paranoid
+  end
+</pre>
+
+<pre>
+  house = Project.create(:name => 'Build a house')
+  joe = Worker.create(:name => 'Joe')
+  Task.create(:name => 'paint walls', :worker => joe, :project => house)
+  
+  house.destroy
+  the_task = joe.tasks.first
+  the_task.name      # => 'paint walls'
+  the_task.project   # => Project(name:Build a house)
+  
+  ProjectAlive.all   # => []
+  Project.all        # => [Project(name:Build a house)]
+</pre>
+
+h4. I want my association to behave like is_paranoid
+
+This is why you have a cloned model, simply tell that class name in your association
+
+<pre>
+  class Project < ActiveRecord::Base
+    has_many :tasks, :class_name => 'TaskAlive'
+  
+  end
+
+  class Task < ActiveRecord::Base
+    belongs_to :project
+    belongs_to :worker
+    
+    is_less_paranoid
+  end
+</pre>
+
+<pre>
+  house = Project.create(:name => 'Build a house')
+  painting = Task.create(:name => 'paint walls', :project => house)
+  Task.create(:name => 'clean roof', :project => house)
+  house.tasks  # => [Task(name:paint walls), Task(name:clean roof)]
+  painting.destroy
+  house.tasks  # => [Task(name:clean roof)]
+</pre>
+
+h4. I want my model to scope finds and the clone class not to
+
+Yes sometimes the 'Alive' model should be your real model, which is exactly the opposite way of the default
+behaviour for the clone class.
+
+No problem, tell it with the option :clone => :with_destroyed. This will create a clone class with 'WithDestroyed'
+as a suffix.
+
+<pre>
+  class Worker < ActiveRecord::Base
+    has_many :tasks
+  
+    is_less_paranoid :clone => :with_destroyed
+  end
+</pre>
+
+<pre>
+  joe = Worker.create(:name => 'Joe')
+  Worker.all                # => [Worker(name:Joe)]
+  WorkerWithDestroyed.all   # => [Worker(name:Joe)]
+  
+  joe.destroy
+  Worker.all                # => []
+  WorkerWithDestroyed.all   # => [Worker(name:Joe)]
+</pre>
+
+Hey, 'WithDestroyed' is ugly. Okay, so choose your prefix or suffix by adding an option
+
+<pre>
+  class Worker < ActiveRecord::Base
+    has_many :tasks
+  
+    is_less_paranoid :clone => :with_destroyed, :suffix => 'WithFired'
+  end
+</pre>
+
+<pre>
+  joe = Worker.create(:name => 'Joe')
+  Worker.all                # => [Worker(name:Joe)]
+  WorkerWithFired.all       # => [Worker(name:Joe)]
+  
+  joe.destroy
+  Worker.all                # => []
+  WorkerWithFired.all       # => [Worker(name:Joe)]
+</pre>
+
+h4. I want bare bone is_paranoid behaviour
+
+And you don't want to install the is_paranoid gem, then simply tell that you don't want a clone class
+with the option :clone => false.
+
+<pre>
+  class Project < ActiveRecord::Base
+    has_many :tasks
+  
+    is_less_paranoid :clone => false
+  end
+</pre>
+
+
+h3. Installation
+
+You need ActiveRecord 2.3 and you need to properly install this gem.
+
+If you're working with Rails, in your environment.rb, add the following to your initializer block.
+
+<pre>
+Rails::Initializer.run do |config|
+  # ...
+  config.gem "phurni-is_less_paranoid", :lib => 'is_less_paranoid'
+end
+</pre>
+
+
+h3. is_paranoid
+
+Every option of the is_paranoid plugin should work with *is_less_paranoid*.
+
+Please let me know if you find issues specific to *is_less_paranoid*.
+
+h3. Thanks
+
+Thanks to *Jeffrey Chupp* for the rewamped acts_as_paranoid aka *is_paranoid*.
+
