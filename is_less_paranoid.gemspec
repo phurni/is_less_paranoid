@@ -9,6 +9,28 @@ Gem::Specification.new do |s|
   s.date = %q{2009-07-07}
   s.description = %q{}
   s.email = %q{pascal_hurni@fastmail.fm}
+  s.extra_rdoc_files = [
+    "README.textile"
+  ]
+  s.files = [
+    "README.textile",
+    "IS_PARANOID_README.textile",
+    "MIT-LICENSE",
+    "Rakefile",
+    "VERSION.yml",
+    "init.rb",
+    "lib/is_less_paranoid.rb",
+    "rails/init.rb",
+    "reactive/init.rb",
+    "spec/database.yml",
+    "spec/is_paranoid_spec.rb",
+    "spec/is_less_paranoid_spec.rb",
+    "spec/models.rb",
+    "spec/lp_models.rb",
+    "spec/schema.rb",
+    "spec/spec.opts",
+    "spec/spec_helper.rb"
+  ]
   s.has_rdoc = true
   s.homepage = %q{http://github.com/phurni/is_less_paranoid/}
   s.rdoc_options = ["--charset=UTF-8"]
