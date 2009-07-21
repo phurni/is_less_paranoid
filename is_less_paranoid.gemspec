@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
   s.files = [
     "README.textile",
     "IS_PARANOID_README.textile",
+    "IS_PARANOID_CHANGELOG",
     "MIT-LICENSE",
     "Rakefile",
     "VERSION.yml",
